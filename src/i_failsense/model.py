@@ -369,8 +369,9 @@ class FailSense(nn.Module):
                     f"Expected 3D features [B, T, D], got shape {features.shape}"
                 )
 
-            # features = self.encoders[i](features)
-            features = self.att_poolings[i](features)
+            # Cast to float32: VLM backbone runs in bfloat16 but FS blocks
+            # are float32 for training stability.
+            features = self.att_poolings[i](features.float())
             logits = self.classifiers[i](features)
             classifier_outputs.append(logits)
 
