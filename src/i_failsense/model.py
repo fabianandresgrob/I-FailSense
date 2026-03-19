@@ -176,7 +176,7 @@ class FailSense(nn.Module):
         base_model = PaliGemmaForConditionalGeneration.from_pretrained(
             "google/paligemma2-3b-mix-224",
             device_map=self.device,
-            torch_dtype=torch.float32,
+            torch_dtype=torch.bfloat16,
         )
 
         print(f"Loading PEFT adapter from checkpoint {vlm_model_id}")
