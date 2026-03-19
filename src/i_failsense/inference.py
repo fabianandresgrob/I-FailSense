@@ -1,6 +1,6 @@
 import torch
 import tqdm
-from model import process_input
+from .model import process_input
 
 
 def batch_inference(model, dataset, batch_size):

@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import tqdm
-from load_dataset import load_data
+from .load_dataset import load_data
 from peft import PeftModel
 from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
 

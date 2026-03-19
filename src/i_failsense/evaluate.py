@@ -3,10 +3,10 @@ import gc
 import os
 
 import torch
-from inference import batch_inference
-from load_dataset import augment_droid_dataset, load_data
-from model import FailSense
-from visualization import visualization_report
+from .inference import batch_inference
+from .load_dataset import augment_droid_dataset, load_data
+from .model import FailSense
+from .visualization import visualization_report
 
 device = (
     "mps"

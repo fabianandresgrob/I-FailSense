@@ -2,7 +2,7 @@ import argparse
 import os
 
 import torch
-from load_dataset import load_data
+from .load_dataset import load_data
 from peft import LoraConfig, get_peft_model
 from transformers import (
     PaliGemmaForConditionalGeneration,

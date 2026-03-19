@@ -2,8 +2,8 @@ import argparse
 import os
 
 import torch
-from load_dataset import augment_droid_dataset, load_data
-from model import FailSense, train_model
+from .load_dataset import augment_droid_dataset, load_data
+from .model import FailSense, train_model
 
 
 def main(args):
