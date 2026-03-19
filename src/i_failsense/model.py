@@ -282,17 +282,35 @@ class FailSense(nn.Module):
                 images=images,
                 return_tensors="pt",
                 padding="longest",
-                truncation=True,  # Add truncation
-                max_length=512,  # Set reasonable max length
             ).to(self.device)
         except Exception as e:
             raise RuntimeError(f"Error processing inputs: {e}")
 
         # Clear previous features - CRITICAL for memory management
         self.layer_features.clear()
+        if hasattr(self.device, 'type') and self.device.type == "cuda" or \
+                isinstance(self.device, str) and "cuda" in self.device:
+            torch.cuda.empty_cache()
 
-        with torch.no_grad():
-            vlm_output = self.vlm_model(**model_inputs)
+        # When not voting we only need the intermediate hook features, not the
+        # final logit tensor ([batch, seq_len, vocab_size] ≈ 1 GiB on 10 GB GPU).
+        # Temporarily replace lm_head with a no-op so the hooks fire but the
+        # giant projection is never materialised.
+        _lm_head = None
+        if not voting:
+            try:
+                _lm = self.vlm_model.base_model.model.language_model
+                _lm_head = _lm.lm_head
+                _lm.lm_head = torch.nn.Identity()
+            except AttributeError:
+                pass  # model layout differs; proceed normally and hope for the best
+
+        try:
+            with torch.no_grad():
+                vlm_output = self.vlm_model(**model_inputs)
+        finally:
+            if _lm_head is not None:
+                _lm.lm_head = _lm_head  # always restore
 
         decoded = None
         if voting:
