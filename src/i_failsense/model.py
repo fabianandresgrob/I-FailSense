@@ -288,29 +288,40 @@ class FailSense(nn.Module):
 
         # Clear previous features - CRITICAL for memory management
         self.layer_features.clear()
-        if hasattr(self.device, 'type') and self.device.type == "cuda" or \
-                isinstance(self.device, str) and "cuda" in self.device:
+        if isinstance(self.device, str) and "cuda" in self.device or \
+                hasattr(self.device, 'type') and self.device.type == "cuda":
             torch.cuda.empty_cache()
 
-        # When not voting we only need the intermediate hook features, not the
-        # final logit tensor ([batch, seq_len, vocab_size] ≈ 1 GiB on 10 GB GPU).
-        # Temporarily replace lm_head with a no-op so the hooks fire but the
-        # giant projection is never materialised.
-        _lm_head = None
+        # Strip 'labels' so the model skips loss computation (and the
+        # float32 cast of the full [batch, seq_len, vocab_size] logit tensor).
+        # The processor adds labels automatically; we never need them here.
+        model_inputs_fwd = {k: v for k, v in model_inputs.items() if k != "labels"}
+
+        # When not voting we only need the hook-captured intermediate features.
+        # Bypass the lm_head (Linear → vocab_size) to avoid materialising a
+        # ~1 GiB bfloat16 tensor. Find lm_head robustly via named_modules().
+        _lm_head_parent = None
+        _lm_head_name = None
+        _lm_head_orig = None
         if not voting:
-            try:
-                _lm = self.vlm_model.base_model.model.language_model
-                _lm_head = _lm.lm_head
-                _lm.lm_head = torch.nn.Identity()
-            except AttributeError:
-                pass  # model layout differs; proceed normally and hope for the best
+            for name, mod in self.vlm_model.named_modules():
+                if name.endswith("lm_head") and isinstance(mod, torch.nn.Linear):
+                    parts = name.rsplit(".", 1)
+                    if len(parts) == 2:
+                        parent = dict(self.vlm_model.named_modules()).get(parts[0])
+                        if parent is not None:
+                            _lm_head_parent = parent
+                            _lm_head_name = parts[1]
+                            _lm_head_orig = mod
+                            setattr(parent, parts[1], torch.nn.Identity())
+                            break
 
         try:
             with torch.no_grad():
-                vlm_output = self.vlm_model(**model_inputs)
+                vlm_output = self.vlm_model(**model_inputs_fwd)
         finally:
-            if _lm_head is not None:
-                _lm.lm_head = _lm_head  # always restore
+            if _lm_head_parent is not None:
+                setattr(_lm_head_parent, _lm_head_name, _lm_head_orig)
 
         decoded = None
         if voting:
