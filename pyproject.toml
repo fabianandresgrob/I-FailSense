@@ -3,7 +3,7 @@ name = "i-failsense"
 version = "0.1.0"
 description = "VLM-based binary failure classifier for robot manipulation"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "datasets>=4.8.2",
     "huggingface-hub>=1.7.1",
